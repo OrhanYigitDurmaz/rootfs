@@ -125,14 +125,15 @@ jobs:
 
             ### Details
             - **SSH:** OpenSSH server enabled at boot
-            - **Root login:** `root` / `root` (change immediately after deploy)
+            - **Root login:** Permitted (`PermitRootLogin yes`)
+            - **Password:** Set at creation time via `--password` or Tofu provider
             - **Host keys:** Regenerated on first boot
 
             ### Quick start
             ```bash
-            # Upload to Proxmox, then:
             pct create 100 /var/lib/vz/template/cache/debian-13-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz \
-              --rootfs local:8 --memory 512 --net0 name=eth0,bridge=vmbr0,ip=dhcp
+              --rootfs local:8 --memory 512 --net0 name=eth0,bridge=vmbr0,ip=dhcp \
+              --password yourpassword
             ```
           files: output/*.tar.xz
           fail_on_unmatched_files: true

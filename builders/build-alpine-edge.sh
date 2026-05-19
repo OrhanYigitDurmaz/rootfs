@@ -32,9 +32,6 @@ echo ">>> Building Alpine Edge rootfs"
         rc-update add sshd default
         rc-update add local default
 
-        # Set root password and ensure account is unlocked
-        echo 'root:root' | chpasswd
-        sed -i 's|^root:!|root:|' /etc/shadow
 
         # Set hostname
         echo 'alpine-edge-lxc' > /etc/hostname

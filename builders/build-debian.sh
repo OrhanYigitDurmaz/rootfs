@@ -27,9 +27,6 @@ chmod +x "${ROOTFS}/etc/rc.local"
 echo ">>> Enabling SSH service"
 chroot "${ROOTFS}" systemctl enable ssh
 
-echo ">>> Setting root password"
-echo "root:root" | chroot "${ROOTFS}" chpasswd
-
 echo ">>> Setting hostname"
 echo "debian-lxc" > "${ROOTFS}/etc/hostname"
 

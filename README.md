@@ -12,16 +12,9 @@ Automated weekly builds of minimal Proxmox-compatible LXC container templates wi
 
 All templates include:
 - OpenSSH server installed and enabled at boot
-- Root login permitted via password
+- Root login permitted via password (PermitRootLogin yes)
 - SSH host keys regenerated on first boot (not pre-baked)
-
-## Default credentials
-
-| User | Password |
-|------|----------|
-| root | root |
-
-**Change the root password immediately after deployment.**
+- Root account locked — password set at container creation time
 
 ## Usage
 
@@ -31,13 +24,36 @@ Download a template from the [Releases](../../releases) page and upload it to yo
 # Upload to Proxmox template storage
 scp debian-13-ssh_2026.5.3_amd64.tar.xz root@proxmox:/var/lib/vz/template/cache/
 
-# Create a container
+# Create a container (--password sets the root password)
 pct create 100 /var/lib/vz/template/cache/debian-13-ssh_2026.5.3_amd64.tar.xz \
-  --rootfs local:8 --memory 512 --net0 name=eth0,bridge=vmbr0,ip=dhcp
+  --rootfs local:8 --memory 512 --net0 name=eth0,bridge=vmbr0,ip=dhcp \
+  --password yourpassword
 
-# Start and connect
+# Start and connect (no login needed via pct enter)
 pct start 100
 pct enter 100
+```
+
+### OpenTofu / Terraform
+
+```hcl
+resource "proxmox_virtual_environment_container" "example" {
+  operating_system {
+    template_file_id = "local:vztmpl/debian-13-ssh_amd64.tar.xz"
+  }
+  initialization {
+    user_account {
+      password = var.root_password
+    }
+  }
+}
+```
+
+Use the stable `latest` release URLs for automation:
+```
+https://github.com/OrhanYigitDurmaz/rootfs/releases/download/latest/debian-13-ssh_amd64.tar.xz
+https://github.com/OrhanYigitDurmaz/rootfs/releases/download/latest/alpine-3.23-ssh_amd64.tar.xz
+https://github.com/OrhanYigitDurmaz/rootfs/releases/download/latest/alpine-edge-ssh_amd64.tar.xz
 ```
 
 ## Versioning
