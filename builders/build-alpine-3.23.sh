@@ -32,8 +32,9 @@ echo ">>> Building Alpine 3.23 rootfs"
         rc-update add sshd default
         rc-update add local default
 
-        # Set root password
+        # Set root password and ensure account is unlocked
         echo 'root:root' | chpasswd
+        sed -i 's|^root:!|root:|' /etc/shadow
 
         # Set hostname
         echo 'alpine-lxc' > /etc/hostname
