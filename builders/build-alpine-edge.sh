@@ -31,6 +31,9 @@ fi
 echo ">>> Extracting rootfs"
 tar -xzf "${CACHE_DIR}/${TARBALL}" -C "${ROOTFS}"
 
+echo ">>> Setting up DNS resolution in chroot"
+cp /etc/resolv.conf "${ROOTFS}/etc/resolv.conf"
+
 echo ">>> Configuring Alpine repositories"
 cat > "${ROOTFS}/etc/apk/repositories" <<EOF
 https://dl-cdn.alpinelinux.org/alpine/edge/main
