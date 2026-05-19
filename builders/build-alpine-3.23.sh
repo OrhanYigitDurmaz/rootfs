@@ -15,7 +15,7 @@ chmod +x /tmp/alpine-make-rootfs
 echo ">>> Building Alpine 3.23 rootfs"
 /tmp/alpine-make-rootfs \
     --branch v3.23 \
-    --packages 'openssh openrc' \
+    --packages 'apk-tools openssh openrc' \
     --script-chroot \
     "${OUTFILE}" - <<SHELL
         # Configure SSH
