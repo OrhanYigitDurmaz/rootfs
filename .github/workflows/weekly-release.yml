@@ -102,7 +102,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**Built:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Create GitHub Release
+      - name: Create versioned release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
@@ -135,3 +135,27 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create stable-name copies for latest release
+        run: |
+          cp output/debian-13-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz output/debian-13-ssh_amd64.tar.xz
+          cp output/alpine-3.23-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz output/alpine-3.23-ssh_amd64.tar.xz
+          cp output/alpine-edge-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz output/alpine-edge-ssh_amd64.tar.xz
+
+      - name: Update latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes 2>/dev/null || true
+          git push origin :refs/tags/latest 2>/dev/null || true
+          gh release create latest \
+            --title "latest" \
+            --notes "Rolling release pointing to the latest build (\`${{ steps.version.outputs.version }}\`).
+
+          Stable download URLs for automation:
+          - \`debian-13-ssh_amd64.tar.xz\`
+          - \`alpine-3.23-ssh_amd64.tar.xz\`
+          - \`alpine-edge-ssh_amd64.tar.xz\`" \
+            output/debian-13-ssh_amd64.tar.xz \
+            output/alpine-3.23-ssh_amd64.tar.xz \
+            output/alpine-edge-ssh_amd64.tar.xz
