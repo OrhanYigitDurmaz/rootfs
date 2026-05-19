@@ -149,9 +149,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete latest --yes 2>/dev/null || true
-          git push origin :refs/tags/latest 2>/dev/null || true
+          gh release delete latest --cleanup-tag --yes 2>/dev/null || true
+          git tag -d latest 2>/dev/null || true
           gh release create latest \
+            --target "${{ github.sha }}" \
             --title "latest" \
             --notes "Rolling release pointing to the latest build (\`${{ steps.version.outputs.version }}\`).
 
