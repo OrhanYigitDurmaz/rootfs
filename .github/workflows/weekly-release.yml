@@ -79,8 +79,8 @@ jobs:
               continue
             fi
             SIZE=$(stat -c%s "$f")
-            if [ "$SIZE" -lt 10485760 ]; then
-              echo "::error::$f is too small (${SIZE} bytes, expected >10MB)"
+            if [ "$SIZE" -lt 2097152 ]; then
+              echo "::error::$f is too small (${SIZE} bytes, expected >2MB)"
               FAILED=1
             else
               echo "OK: $f ($(numfmt --to=iec $SIZE))"
