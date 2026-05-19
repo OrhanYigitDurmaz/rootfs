@@ -12,7 +12,7 @@ mkdir -p "${OUTPUT_DIR}" "${CACHE_DIR}"
 MIRROR="https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64"
 
 echo ">>> Finding latest Alpine Edge minirootfs"
-TARBALL=$(curl -sL "${MIRROR}/" | grep -oP 'alpine-minirootfs-\d+\.\d+-x86_64\.tar\.gz' | sort -V | tail -1)
+TARBALL=$(curl -sL "${MIRROR}/" | grep -oP 'alpine-minirootfs-[0-9.]+-x86_64\.tar\.gz' | sort -V | tail -1)
 
 if [ -z "${TARBALL}" ]; then
     echo "::error::Could not find Alpine Edge minirootfs tarball"
