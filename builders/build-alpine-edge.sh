@@ -43,6 +43,9 @@ EOF
 echo ">>> Installing OpenSSH server"
 chroot "${ROOTFS}" apk add --no-cache openssh openrc
 
+echo ">>> Removing build-time resolv.conf"
+rm -f "${ROOTFS}/etc/resolv.conf"
+
 echo ">>> Configuring SSH"
 cp configs/sshd_config "${ROOTFS}/etc/ssh/sshd_config"
 sed -i 's/^UsePAM yes/UsePAM no/' "${ROOTFS}/etc/ssh/sshd_config"
