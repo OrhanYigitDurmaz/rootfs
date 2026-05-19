@@ -3,7 +3,6 @@ set -euo pipefail
 
 VERSION="${1:?Usage: $0 <VERSION>}"
 OUTPUT_DIR="$(pwd)/output"
-SCRIPT_DIR="$(pwd)/configs"
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -20,14 +19,14 @@ echo ">>> Building Alpine 3.23 rootfs"
     --script-chroot \
     "${OUTFILE}" - <<SHELL
         # Configure SSH
-        install -m 644 /mnt/${SCRIPT_DIR}/sshd_config /etc/ssh/sshd_config
+        install -m 644 /mnt/configs/sshd_config /etc/ssh/sshd_config
         sed -i 's/^UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
 
         # Remove pre-generated SSH host keys
         rm -f /etc/ssh/ssh_host_*
 
         # First-boot host key regeneration
-        install -m 755 /mnt/${SCRIPT_DIR}/firstboot.sh /etc/local.d/firstboot.start
+        install -m 755 /mnt/configs/firstboot.sh /etc/local.d/firstboot.start
 
         # Enable services
         rc-update add sshd default
