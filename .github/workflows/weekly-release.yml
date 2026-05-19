@@ -1,0 +1,145 @@
+name: Weekly LXC Template Release
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: 'Override version string (e.g. 2026.5.3)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version_override }}" ]; then
+            VERSION="${{ inputs.version_override }}"
+          else
+            DAY=$(date +%-d)
+            WEEK=$(( (DAY - 1) / 7 + 1 ))
+            VERSION="$(date +%Y).$(date +%-m).${WEEK}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "### Version: \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check if release already exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Release v${VERSION} already exists. Skipping."
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap qemu-user-static xz-utils wget curl
+
+      - name: Cache Alpine minirootfs downloads
+        uses: actions/cache@v4
+        with:
+          path: /tmp/alpine-cache
+          key: alpine-minirootfs-${{ steps.version.outputs.version }}
+          restore-keys: |
+            alpine-minirootfs-
+
+      - name: Build Debian 13
+        run: |
+          chmod +x builders/build-debian.sh
+          sudo builders/build-debian.sh "${{ steps.version.outputs.version }}"
+
+      - name: Build Alpine 3.23
+        run: |
+          chmod +x builders/build-alpine-3.23.sh
+          sudo builders/build-alpine-3.23.sh "${{ steps.version.outputs.version }}"
+
+      - name: Build Alpine Edge
+        run: |
+          chmod +x builders/build-alpine-edge.sh
+          sudo builders/build-alpine-edge.sh "${{ steps.version.outputs.version }}"
+
+      - name: Verify outputs
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          FAILED=0
+          for f in \
+            "output/debian-13-ssh_${VERSION}_amd64.tar.xz" \
+            "output/alpine-3.23-ssh_${VERSION}_amd64.tar.xz" \
+            "output/alpine-edge-ssh_${VERSION}_amd64.tar.xz"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing output: $f"
+              FAILED=1
+              continue
+            fi
+            SIZE=$(stat -c%s "$f")
+            if [ "$SIZE" -lt 10485760 ]; then
+              echo "::error::$f is too small (${SIZE} bytes, expected >10MB)"
+              FAILED=1
+            else
+              echo "OK: $f ($(numfmt --to=iec $SIZE))"
+            fi
+          done
+          [ "$FAILED" -eq 0 ] || exit 1
+
+      - name: Generate job summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Template | Size |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|------|" >> "$GITHUB_STEP_SUMMARY"
+          for f in output/*.tar.xz; do
+            SIZE=$(stat -c%s "$f")
+            NAME=$(basename "$f")
+            echo "| \`${NAME}\` | $(numfmt --to=iec $SIZE) |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Built:** $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          body: |
+            ## Proxmox LXC Templates — ${{ steps.version.outputs.version }}
+
+            Weekly automated build of minimal LXC container templates with SSH pre-configured.
+
+            ### Included templates
+
+            | Template | Base | Arch |
+            |----------|------|------|
+            | `debian-13-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz` | Debian 13 (Trixie) | amd64 |
+            | `alpine-3.23-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz` | Alpine 3.23 | x86_64 |
+            | `alpine-edge-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz` | Alpine Edge | x86_64 |
+
+            ### Details
+            - **SSH:** OpenSSH server enabled at boot
+            - **Root login:** `root` / `root` (change immediately after deploy)
+            - **Host keys:** Regenerated on first boot
+
+            ### Quick start
+            ```bash
+            # Upload to Proxmox, then:
+            pct create 100 /var/lib/vz/template/cache/debian-13-ssh_${{ steps.version.outputs.version }}_amd64.tar.xz \
+              --rootfs local:8 --memory 512 --net0 name=eth0,bridge=vmbr0,ip=dhcp
+            ```
+          files: output/*.tar.xz
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
