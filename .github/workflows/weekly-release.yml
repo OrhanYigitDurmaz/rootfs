@@ -65,6 +65,9 @@ jobs:
           chmod +x builders/build-alpine-edge.sh
           sudo builders/build-alpine-edge.sh "${{ steps.version.outputs.version }}"
 
+      - name: Fix output permissions
+        run: sudo chown -R $(id -u):$(id -g) output/
+
       - name: Verify outputs
         run: |
           VERSION="${{ steps.version.outputs.version }}"
