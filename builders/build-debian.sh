@@ -27,6 +27,15 @@ chmod +x "${ROOTFS}/etc/rc.local"
 echo ">>> Enabling SSH service"
 chroot "${ROOTFS}" systemctl enable ssh
 
+echo ">>> Configuring console autologin"
+mkdir -p "${ROOTFS}/etc/systemd/system/console-getty.service.d"
+cat > "${ROOTFS}/etc/systemd/system/console-getty.service.d/autologin.conf" <<'EOF'
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin root --noclear --keep-baud console 115200,38400,9600 $TERM
+EOF
+chroot "${ROOTFS}" systemctl enable console-getty.service
+
 echo ">>> Setting hostname"
 echo "debian-lxc" > "${ROOTFS}/etc/hostname"
 

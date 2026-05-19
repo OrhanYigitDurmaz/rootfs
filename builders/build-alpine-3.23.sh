@@ -33,6 +33,18 @@ echo ">>> Building Alpine 3.23 rootfs"
         rc-update add local default
 
 
+        # Configure console autologin
+        install -d /usr/sbin
+        cat > /usr/sbin/autologin <<'AUTOLOGIN'
+#!/bin/sh
+exec /bin/login -f root
+AUTOLOGIN
+        chmod +x /usr/sbin/autologin
+        sed -i 's|^tty1::.*|tty1::respawn:/sbin/getty -n -l /usr/sbin/autologin 38400 tty1|' /etc/inittab
+        grep -q '^::respawn:.*console' /etc/inittab && \
+            sed -i 's|^::respawn:.*console.*|::respawn:/sbin/getty -n -l /usr/sbin/autologin 0 console|' /etc/inittab || \
+            echo '::respawn:/sbin/getty -n -l /usr/sbin/autologin 0 console' >> /etc/inittab
+
         # Set hostname
         echo 'alpine-lxc' > /etc/hostname
 SHELL
