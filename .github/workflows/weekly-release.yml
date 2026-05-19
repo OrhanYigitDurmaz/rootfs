@@ -48,15 +48,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y debootstrap qemu-user-static xz-utils wget curl
-
-      - name: Cache Alpine minirootfs downloads
-        uses: actions/cache@v4
-        with:
-          path: /tmp/alpine-cache
-          key: alpine-minirootfs-${{ steps.version.outputs.version }}
-          restore-keys: |
-            alpine-minirootfs-
+          sudo apt-get install -y debootstrap xz-utils wget curl
 
       - name: Build Debian 13
         run: |

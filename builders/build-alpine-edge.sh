@@ -3,74 +3,42 @@ set -euo pipefail
 
 VERSION="${1:?Usage: $0 <VERSION>}"
 OUTPUT_DIR="$(pwd)/output"
-ROOTFS=$(mktemp -d)
-CACHE_DIR="/tmp/alpine-cache"
-trap "rm -rf ${ROOTFS}" EXIT
+SCRIPT_DIR="$(pwd)/configs"
 
-mkdir -p "${OUTPUT_DIR}" "${CACHE_DIR}"
-
-MIRROR="https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64"
-
-echo ">>> Finding latest Alpine Edge minirootfs"
-TARBALL=$(curl -sL "${MIRROR}/" | grep -oP 'alpine-minirootfs-[0-9.]+-x86_64\.tar\.gz' | sort -V | tail -1)
-
-if [ -z "${TARBALL}" ]; then
-    echo "::error::Could not find Alpine Edge minirootfs tarball"
-    exit 1
-fi
-
-echo ">>> Using: ${TARBALL}"
-
-if [ ! -f "${CACHE_DIR}/${TARBALL}" ]; then
-    echo ">>> Downloading ${MIRROR}/${TARBALL}"
-    wget -q -O "${CACHE_DIR}/${TARBALL}" "${MIRROR}/${TARBALL}"
-else
-    echo ">>> Using cached ${TARBALL}"
-fi
-
-echo ">>> Extracting rootfs"
-tar -xzf "${CACHE_DIR}/${TARBALL}" -C "${ROOTFS}"
-
-echo ">>> Setting up DNS resolution in chroot"
-cp /etc/resolv.conf "${ROOTFS}/etc/resolv.conf"
-
-echo ">>> Configuring Alpine repositories"
-cat > "${ROOTFS}/etc/apk/repositories" <<EOF
-https://dl-cdn.alpinelinux.org/alpine/edge/main
-https://dl-cdn.alpinelinux.org/alpine/edge/community
-EOF
-
-echo ">>> Installing OpenSSH server"
-chroot "${ROOTFS}" apk add --no-cache openssh openrc
-
-echo ">>> Removing build-time resolv.conf"
-rm -f "${ROOTFS}/etc/resolv.conf"
-
-echo ">>> Configuring SSH"
-cp configs/sshd_config "${ROOTFS}/etc/ssh/sshd_config"
-sed -i 's/^UsePAM yes/UsePAM no/' "${ROOTFS}/etc/ssh/sshd_config"
-
-echo ">>> Removing pre-generated SSH host keys"
-rm -f "${ROOTFS}"/etc/ssh/ssh_host_*
-
-echo ">>> Setting up first-boot host key regeneration"
-mkdir -p "${ROOTFS}/etc/local.d"
-cp configs/firstboot.sh "${ROOTFS}/etc/local.d/firstboot.start"
-chmod +x "${ROOTFS}/etc/local.d/firstboot.start"
-
-echo ">>> Enabling services"
-chroot "${ROOTFS}" rc-update add sshd default
-chroot "${ROOTFS}" rc-update add local default
-
-echo ">>> Setting root password"
-echo "root:root" | chroot "${ROOTFS}" chpasswd
-
-echo ">>> Setting hostname"
-echo "alpine-edge-lxc" > "${ROOTFS}/etc/hostname"
+mkdir -p "${OUTPUT_DIR}"
 
 OUTFILE="${OUTPUT_DIR}/alpine-edge-ssh_${VERSION}_amd64.tar.xz"
-echo ">>> Creating tarball: ${OUTFILE}"
-tar -cJf "${OUTFILE}" -C "${ROOTFS}" .
+
+echo ">>> Downloading alpine-make-rootfs"
+wget -q -O /tmp/alpine-make-rootfs https://raw.githubusercontent.com/alpinelinux/alpine-make-rootfs/v0.8.1/alpine-make-rootfs
+chmod +x /tmp/alpine-make-rootfs
+
+echo ">>> Building Alpine Edge rootfs"
+/tmp/alpine-make-rootfs \
+    --branch edge \
+    --packages 'openssh openrc' \
+    --script-chroot \
+    "${OUTFILE}" - <<SHELL
+        # Configure SSH
+        install -m 644 /mnt/${SCRIPT_DIR}/sshd_config /etc/ssh/sshd_config
+        sed -i 's/^UsePAM yes/UsePAM no/' /etc/ssh/sshd_config
+
+        # Remove pre-generated SSH host keys
+        rm -f /etc/ssh/ssh_host_*
+
+        # First-boot host key regeneration
+        install -m 755 /mnt/${SCRIPT_DIR}/firstboot.sh /etc/local.d/firstboot.start
+
+        # Enable services
+        rc-update add sshd default
+        rc-update add local default
+
+        # Set root password
+        echo 'root:root' | chpasswd
+
+        # Set hostname
+        echo 'alpine-edge-lxc' > /etc/hostname
+SHELL
 
 SIZE=$(stat -c%s "${OUTFILE}")
 echo ">>> Done: ${OUTFILE} ($(numfmt --to=iec ${SIZE}))"
