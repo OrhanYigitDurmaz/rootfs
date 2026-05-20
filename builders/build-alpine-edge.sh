@@ -15,7 +15,7 @@ chmod +x /tmp/alpine-make-rootfs
 echo ">>> Building Alpine Edge rootfs"
 /tmp/alpine-make-rootfs \
     --branch edge \
-    --packages 'apk-tools openssh openrc' \
+    --packages 'apk-tools openssh openrc python3' \
     --script-chroot \
     "${OUTFILE}" - <<SHELL
         # Configure SSH
